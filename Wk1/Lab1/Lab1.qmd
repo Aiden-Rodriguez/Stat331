@@ -1,0 +1,64 @@
+---
+title: "Lab 1: Introduction to Quarto"
+format: html
+editor: visual
+
+author: Aiden Rodriguez
+embed-resources: true
+code-tools: true
+
+execute:
+  echo: true
+  error: true
+---
+
+# Tooth Growth Dataset
+
+```{r}
+
+# Load a dataset into the R Environment.
+data(ToothGrowth)
+
+# Look at the summary of the variables in the dataset.
+summary(ToothGrowth)
+
+# Look at a frequency table of a categorical variable.
+table(ToothGrowth$supp)
+```
+
+*This dataset investigates the effect of vitamin C on tooth growth in guinea pigs.*
+
+*The two supplement delivery methods include OJ (Orange Juice) and VC (ascorbic acid).*
+
+*It is a data frame with 60 observations and 3 variables.*
+
+# Tooth Box Plot
+
+```{r}
+# make sure to load the package ggplot2
+library(ggplot2)
+ggplot(data = ToothGrowth, 
+       aes(x = supp,
+           y = len)) +
+  geom_boxplot() +
+  labs(
+    x = "Supplement Type",
+    y = "Tooth Length"
+  )
+```
+
+# Two Sample T Test on OJ vs. VC
+
+```{r}
+t.test(len ~ supp, data = ToothGrowth, var.equal = FALSE, alternative = "two.sided")
+
+```
+
+# Results of T Test
+
+1.  The default alpha value is 0.05, meaning the CI is 95%. Since the p-value is 0.06063, which is greater than 0.05, we can conclude that there is no statistically significant difference between these two data types. This means that the different types of vitamin C inputs do not seem to meaningfully affect the tooth length of the guinea pigs.
+2.  The default confidence interval is 95%, and 0 is within the interval (between -0.17 and 7.57), so the previous conclusion is correct.
+
+# Image
+
+![A faceless enemy from Fire Emblem Fates with 73 attack! (I am cooked)](image.png)

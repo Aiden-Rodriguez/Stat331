@@ -204,15 +204,15 @@ seq(from = 1, to = 10, by = 1)
 Note the errors:
 
 ```{r}
-seq(from = 1, to = 10, by = 1
+seq(from = 1, to = 10, by = 1)
 ```
 
 ```{r}
-seq(from = 1, to = 10 by = 1)
+seq(from = 1, to = 10, by = 1)
 ```
 
 ```{r}
-sequence(from = 1, to = 10, by = 1)
+seq(from = 1, to = 10, by = 1)
 ```
 
 ### Object-type Errors
@@ -236,7 +236,7 @@ some_ojb <- 1:10
 mean(some_obj)
 ```
 
-> Error: Object `some_obj` not found.
+> Error: Object `some_obj` not found.s
 
 - probably means:
 
