@@ -1,0 +1,121 @@
+
+```{r}
+label: setup
+library(tidyverse)
+library(palmerpenguins)
+#| message: false
+```
+
+
+```{r}
+data(penguins)
+```
+
+# Exploring the Penguins Data
+
+## Step 1: Barchart
+
+7. Create a plot of the frequency of each penguin species in the data.
+
+a. Use <https://excalidraw.com/> (or pen and paper, a tablet, etc.) to create a sketch for this plot. Label the aesthetics that will be needed.
+
+b. Use `ggplot2` to create the plot you sketched above.
+
+```{r}
+#| label: barchart
+ggplot(data = penguins,
+       mapping = aes(x = species)) + 
+  geom_bar() + 
+  labs(x = "Species",
+       y = "Frequency",
+       title = "Frequency of Penguin Species")
+
+```
+
+<!-- Rotate roles! Project manager becomes coder, coder becomes computer, etc. -->
+
+## Step 2: Histogram or Density Curve
+
+8. Use `ggplot2` to plot the distribution of bill lengths for the penguins included in the dataset.
+
+```{r}
+#| label: histogram
+
+ggplot(data = penguins,
+       mapping = aes(x = bill_len)) + 
+  geom_histogram()
+
+```
+
+## Step 3: Scatterplot
+
+9. Use `ggplot2` to plot the relationship between the length of a penguin's bill (`bill_length_mm`) and the depth of their bill (`bill_depth_mm`).
+
+```{r}
+#| label: scatterplot
+ggplot(data = penguins,
+       mapping = aes(x = bill_len, 
+                     y = bill_dep,
+                     color = species)) + 
+  geom_point() + 
+  geom_smooth(method = "lm")
+```
+
+
+## Step 4: Add a Trend Line
+
+10. Add a **linear** trend line to the scatterplot you made above! 
+
+<!-- Rotate roles! Project manager becomes coder, coder becomes computer, etc. -->
+
+## Step 5: Adding A Categorical Variable
+
+11. Building off of the plot you made in Step 4, add an aesthetic to differentiate the species of the penguins in the scatterplot by color for both the points *and* the trend line.
+
+```{r}
+#| label: scatterplot-with-one-categorical-variable
+
+
+```
+
+12. Edit your plot in (11) above so that the points are colored by species, but there is only one overall linear trend line.
+
+```{r}
+#| label: scatterplot-one-trend
+
+#| label: scatterplot
+ggplot(data = penguins,
+       mapping = aes(x = bill_len, 
+                     y = bill_dep,
+                     )) + 
+  geom_point(mapping = aes(color = species,
+                           shape = island)) + 
+  geom_smooth(method = "lm")
+```
+
+
+13. Building on your code from (11), add the location of the penguins (`island`) to your visualization. There is more than one method to address this, however, one method will more easiliy allow you to address the quesitons below.
+
+```{r}
+#| label: scatterplot-with-two-categorical-variables
+
+count(penguins[,1])
+```
+
+## Canvas Quiz
+
+
+Working as a team, use the plots you created to answer the following questions on Canvas.
+
+1.  Which species of penguins is represented **least** in the Palmer Penguins data set?
+Chinstrap
+2. Which species had the weakest relationship between bill length and bill depth?
+Adelie
+3.  Which species of penguins are found on **every** island?
+Adelie
+4.  Which species of penguins are found **only** on Dream Island?
+Chinstrap
+5.  Which species of penguins are found **only** on Biscoe Island?
+Gentoo
+
+

@@ -6,6 +6,7 @@ editor: visual
 author: Aiden Rodriguez
 embed-resources: true
 code-tools: true
+code-fold: show
 
 execute:
   echo: true
@@ -35,6 +36,9 @@ table(ToothGrowth$supp)
 # Tooth Box Plot
 
 ```{r}
+#| fig-align: center
+#| fig-cap: "Boxplots of tooth length by supplement delivery method."
+
 # make sure to load the package ggplot2
 library(ggplot2)
 ggplot(data = ToothGrowth, 
@@ -56,7 +60,7 @@ t.test(len ~ supp, data = ToothGrowth, var.equal = FALSE, alternative = "two.sid
 
 # Results of T Test
 
-1.  The default alpha value is 0.05, meaning the CI is 95%. Since the p-value is 0.06063, which is greater than 0.05, we can conclude that there is no statistically significant difference between these two data types. This means that the different types of vitamin C inputs do not seem to meaningfully affect the tooth length of the guinea pigs.
+1.  The default alpha value is 0.05, meaning the CI is 95%. Since the p-value is 0.06063, which is greater than 0.05, we can conclude that there is no statistically significant difference between these two data types. This means that the different types of vitamin C inputs do not seem to statistically meaningfully affect the tooth length of the guinea pigs.
 2.  The default confidence interval is 95%, and 0 is within the interval (between -0.17 and 7.57), so the previous conclusion is correct.
 
 # Image
