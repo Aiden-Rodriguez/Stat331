@@ -1,14 +1,15 @@
 ---
 title: "Lab 2: Exploring Rodents with `ggplot2`"
-author: "YOUR NAME"
+author: "Aiden Rodriguez"
 format: html
 embed-resources: true
 toc: true
 execute:
+  embed-resources: true
+  code-tools: true
   echo: true
   message: false
   warning: false
-  error: true
 ---
 
 # Lab Instructions
