@@ -1,0 +1,37 @@
+---
+title: "Stat 331/531: Midterm Exam Short Answer"
+date: now
+author: "Aiden Rodriguez"
+format: 
+  pdf:
+    embed-resources: true
+editor: source
+execute: 
+  error: true
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r}
+library(tidyverse)
+
+wage_data  <- read_csv("us-minimum-wage-data.csv")
+party_data <- read_csv("us-party-data.csv")
+
+wage_clean <- wage_data |>
+  mutate(
+    year  = as.integer(str_sub(Effective.Date, 1, 4)),
+    state = str_to_title(State)
+  ) |>
+  select(-State, -Effective.Date)
+
+party_clean <- party_data |>
+  mutate(state = str_to_title(state))
+
+combined <- wage_clean |>
+  left_join(party_clean, by = c("state", "year")) |>
+  select(year, state, everything())
+
+glimpse(combined)
+```

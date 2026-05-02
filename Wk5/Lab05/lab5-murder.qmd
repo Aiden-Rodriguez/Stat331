@@ -1,0 +1,168 @@
+---
+title: "Lab 5: Murder in SQL City"
+subtitle: "`join` + `stringr` + `ludridate`"
+author: "Aiden Rodriguez"
+format: 
+  html:
+    toc: true
+    embed-resources: true
+editor: source
+execute: 
+  error: true
+  echo: true
+  message: false
+  warning: false
+---
+
+## Accessing the Data
+
+```{r}
+#| message: false
+#| warning: false
+library(tidyverse)
+library(knitr)
+
+url("https://raw.githubusercontent.com/manncz/stat-331-s25/main/labs/lab5/data/bCH_murder_data.Rdata") |> 
+  load()
+```
+
+
+## Cleaning and Combining the Data
+
+**0.1 Use a `stringr` function(s) and a regular expression(s) to create `address_number` and `address_street_name` columns in the `person` dataset. Convert the `address_number` variable to numeric.**
+
+```{r}
+person <- person |> 
+  mutate(
+    address_number = as.numeric(str_extract(address, "[0-9]*")),
+    address_street_name = str_extract(address, "[A-z].*")
+  )
+```
+
+**0.2 Design and implement a check that you created the `address_number` and `address_street_name` columns correctly. Your output should prove that you completed it correctly (not print all of the rows of the data!)**
+
+```{r}
+person |> 
+  mutate(reconstructed_address = paste(address_number, address_street_name)) |> 
+  summarize(all_match = all(reconstructed_address == address))
+
+#https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/paste, used for paste function
+```
+
+**0.3 Create two new datasets:**
+
+- `get_fit_now_full`
+  - every row represents one visit to the "Get Fit Now" gym. 
+  - all member information is included (e.g. check in times, names, and membership information)
+  - should have 2,703 rows and 8 columns
+
+- `suspects_all`
+  - each row represents one person
+  - includes their address, driver's licence information, income, and interview with the police, if they have one
+  - drop the `address` column
+  - should have 10,011 rows and 16 columns
+
+  
+```{r}
+get_fit_now_full <- get_fit_now_check_in |> 
+  full_join(get_fit_now_member, join_by("membership_id"== "id"))
+```
+
+
+```{r}
+suspects_all <- person |> 
+  left_join(drivers_license, join_by("license_id" == "id")) |> 
+  left_join(income, by = "ssn") |> 
+  left_join(interview, join_by("id" == "person_id")) |> 
+  select(-address)
+```
+  
+  
+## Solving the Crime
+
+## Initial Observations
+
+*Well we know that at the least that the murder was in SQL City, Jan. 15th, 2018 (20180115), so we can search the crime reports for information on that.*
+```{r}
+possible_crime_times <- crime_scene_report |> 
+  filter(city == "SQL City", date == "20180115", type == "murder")
+
+  kable(possible_crime_times)
+```
+
+## Finding the witnesses
+
+*With these attributes there is only one possibility of which crime scene it is. So going off the description, I will go search for the two witnesses. For the second witness I will assume that the last house on Northwestern Dr. is just the person with the last address number.*
+
+```{r}
+witness1 <- suspects_all |> 
+  filter(str_detect(name, "^Annabel"), 
+         address_street_name == "Franklin Ave")
+
+witness2 <- suspects_all |> 
+  filter(address_street_name == "Northwestern Dr") |> 
+  filter(address_number == max(address_number))
+
+witnesses <- bind_rows(witness1, witness2)
+kable(witnesses)
+
+#bind_rows help -> https://dplyr.tidyverse.org/reference/bind_rows.html
+```
+## Finding the murderer (1)
+
+*From the witnesses there are a few things we can gather. Annabel saw the murderer in the gym January 9th, 2018, at the same time she was at the gym presumably. Morty confirms that the murderer was a gold member, had a membership number starting with "48Z", and had a licence plate that includes "H42W" (This Morty guy has some pretty good memory!)*
+
+```{r}
+gym_suspects <- get_fit_now_full |> 
+  filter(membership_status == "gold", 
+         check_in_date == "20180109") |> 
+  filter(str_detect(membership_id, "48Z")) |> 
+  inner_join(suspects_all, join_by("person_id" == "id")) |> 
+  filter(str_detect(plate_number, "H42W"))
+
+kable(gym_suspects)
+```
+
+## Finding the murderer (2)
+
+*Well, that last search returned someone with an interview, so it looks like there's more to go. The information the driver gave us was that the new suspect is a woman with money, 65" to 67", has red hair, and drives a Tesla Model S. She also attended SQL Symphony concert 3 times in December 2017.*
+
+```{r}
+final_suspects <- suspects_all |> 
+  filter(gender == "female", 
+         hair_color == "red", 
+         height >= 65, height <= 67,
+         car_model == "Model S")
+kable(final_suspects)  
+```
+
+*Three suspects are left. Here I'm going to check on the Symphony Concert information*
+
+```{r}
+check_in_narrowed <- facebook_event_checkin |> 
+  filter(event_name == "SQL Symphony Concert") |>
+  filter(str_detect(date, "^201712")) |> 
+  group_by(person_id) |> 
+  summarize(n_visits = n()) |> 
+  filter(n_visits == 3)
+  
+kable(check_in_narrowed)  
+```
+
+*Now I can just join the two tables to see the final suspect*
+
+```{r}
+final_suspect <- final_suspects |> 
+  inner_join(check_in_narrowed, join_by("id" == "person_id"))
+kable(final_suspect)  
+```
+
+*So it seems like the mastermind behind the operation was Miranda Priestly, and the murderer was Jeremy Bowers.*
+
+::: callout-note
+
+## And the final suspect is...
+
+Miranda Priestly
+
+:::
