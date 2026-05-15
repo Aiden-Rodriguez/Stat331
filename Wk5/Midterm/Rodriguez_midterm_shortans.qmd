@@ -1,0 +1,175 @@
+---
+title: "Stat 331/531: Midterm Exam Short Answer"
+date: now
+author: "Aiden Rodriguez"
+format: 
+  pdf:
+    embed-resources: true
+editor: source
+execute: 
+  error: true
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup}
+library(tidyverse)
+library(knitr)
+```
+
+
+<!--Render this right away to make sure it works!
+If not, change the format from pdf: to html:-->
+
+```{r}
+wage_data  <- read_csv("us-minimum-wage-data.csv")
+party_data <- read_csv("us-party-data.csv")
+```
+
+
+<!--Don't forget to render often!-->
+
+**Question 1.**
+
+```{r}
+min_wage_dat <- wage_data |>
+  mutate(
+    year  = as.integer(str_sub(Effective.Date, 1, 4)),
+  ) |>
+  select(year, 
+         State, 
+         Footnote, 
+         Federal.Minimum.Wage.2020.Dollars, 
+         Effective.Minimum.Wage.2020.Dollars, 
+         State.Minimum.Wage.2020.Dollars)
+```
+
+**Question 2.**
+
+```{r}
+min_wage_dat |> 
+  filter(Footnote == "(b)") |> 
+  nrow() |> 
+  kable()
+
+#Google Search: r how to get number of rows from df
+#https://www.digitalocean.com/community/tutorials/get-number-of-rows-and-columns-in-r
+```
+
+**Question 3.**
+
+```{r}
+min_wage_dat |>
+  filter(year >= 2010, year <= 2020) |> 
+  group_by(year, State) |> 
+  summarise(ratio = mean(State.Minimum.Wage.2020.Dollars/Federal.Minimum.Wage.2020.Dollars),
+            State = State,
+            StateMinWage = State.Minimum.Wage.2020.Dollars,
+            FedMinWage = Federal.Minimum.Wage.2020.Dollars) |> 
+  group_by(year) |> 
+  summarise(max(ratio)) |> 
+  kable()
+
+# For Some reason I cant get it to show the required varibles of State and the wages :(
+```
+
+**Question 4.**
+
+
+```{r}
+min_wage_dat |> 
+  filter(str_detect(State,
+             "^M")) |> 
+  group_by(State) |> 
+  summarise(mean(State.Minimum.Wage.2020.Dollars)) |> 
+  rename("MeanMinimumWage" = "mean(State.Minimum.Wage.2020.Dollars)") |> 
+  arrange(desc(MeanMinimumWage)) |> 
+  kable()
+  
+  #r rename columns
+  #https://dplyr.tidyverse.org/reference/rename.html
+```
+
+**Question 5.**
+
+```{r}
+min_wage_dat |> 
+  filter(State == "California" | State == "Washington" | State == "Minnesota") |> 
+  ggplot(mapping = aes(x = year,
+                       y = Effective.Minimum.Wage.2020.Dollars,
+                       color = State)) +
+  geom_line() +
+  facet_wrap(~ State) + 
+  labs(
+    title = "Minumum Wage Comparison (2020 dollars)",
+    x = "Year",
+    y = "",
+    subtitle = "Effective Minumum Wage"
+  )
+
+```
+
+**Question 6.**
+
+```{r}
+min_wage_dat |> 
+  select(State, 
+         year, 
+         State.Minimum.Wage.2020.Dollars, 
+         Effective.Minimum.Wage.2020.Dollars, 
+         Federal.Minimum.Wage.2020.Dollars) |> 
+  rename("state" = "State.Minimum.Wage.2020.Dollars") |> 
+  rename("federal" = "Federal.Minimum.Wage.2020.Dollars") |> 
+  rename("effective" = "Effective.Minimum.Wage.2020.Dollars") |> 
+  pivot_longer(
+    cols = c(state, 
+         effective, 
+         federal),
+    names_to = "Wage_Type",
+    values_to = "Money"
+  ) |> 
+  slice_head(n = 9) |> 
+  kable()
+
+```
+
+**Question 7.**
+
+```{r}
+party_dat <- party_data |>
+  mutate(party = str_to_title(party)) |> 
+  mutate(support_strength = factor(case_when(
+    perc_votes > 0.55 ~ "Strong",
+    perc_votes > 0.50 ~ "Moderate",
+    .default = "Weak"
+  )))
+
+# used ?factor in terminal
+```
+
+The code below will confirm that you created `support_strength` correctly. Please leave it in your submission!
+
+```{r}
+party_dat |> 
+  pull(support_strength) |> 
+  levels()
+```
+
+**Question 8.**
+
+```{r}
+
+renamed_dat <- min_wage_dat |> 
+  rename("state" = "State") 
+
+renamed_dat |>
+  left_join(party_dat, by = c("state", "year")) |>
+  select(year, state, everything()) |> 
+  slice_tail(n = 5) |> 
+  kable()
+
+
+```
+
+<!--You did it! Submit a PDF of the rendered version to Gradescope first and then this .qmd to Canvas -->
