@@ -1,0 +1,114 @@
+---
+title: "PA 8.1: Tidy Eval Exploration"
+format: html
+execute: 
+  error: true
+  echo: true
+  message: false
+  warning: false
+---
+
+We're going to explore our functions using the `penguins` dataset from the `palmerpenguins` package. You should have this package installed previously, but if not, install it again!
+
+```{r}
+#| label: setup
+
+library(palmerpenguins)
+library(tidyverse)
+```
+
+In this practice activity, you are going to explore writing "tidy" versions of some base R table functions. 
+
+### Base R function
+
+Let's explore the `table()` function first.
+
+```{r}
+table(penguins$species)
+```
+
+```{r}
+table(penguins$species, penguins$island)
+```
+
+**1. What does the base R `table()` function do? What does it do if you provide it with one variable? What about 2?**
+
+### Write dplyr / tidyr code to accomplish the task
+
+**2. Using the penguins data, write code which will recreate the table of `species` vs. `island` but using `dplyr` and `tidyr` verbs:**
+
++ count the number of penguins for each species and island
++ pivot the table appropriately
++ replace NA values with 0s (do this within a pivot function)
+
+```{r}
+penguins |>
+  count(island, species) |>
+  pivot_wider(
+    names_from = island,
+    values_from = n,
+    values_fill = 0
+  ) |>
+  kable()
+```
+
+
+**3. Now, use that code to help create a `tidy_table()` function.**
+
+This function should accept as inputs:
+
+1. A dataframe
+2. A variable name to be the columns of the table
+3. A variable name to be the rows of the table
+
+These variable names should be bare (no quotation marks around them). This means you will have to use the tidy evaluation techniques we learned!
+
+The output should be a tibble or data frame formatted like the output from the `table()` function.
+
+```{r}
+tidy_table <- function(df, col_var, row_var) {
+  df |> 
+  count({{row_var}}, {{ col_var }}) |>
+  pivot_wider(
+    names_from = {{col_var}},
+    values_from = n,
+    values_fill = 0
+  ) |>
+  kable()
+}
+
+```
+
+
+**4. Test out your function!**
+
+```{r}
+tidy_table(df = penguins, 
+           row_var = species, 
+           col_var = island)
+```
+
+
+**5. Does it work if only one variable is input?** 
+
+
+:::callout-important
+Edit your function to make sure it works with only one variable as well if you haven't already! 
+
+To mirror the `table()` function, if one variable is given it should be considered the column variable.
+
+You may need to think about the order of your arguments to make this work nicely.
+:::
+
+```{r}
+tidy_table(df = penguins, species)
+```
+
+:::callout-tip
+## Submission
+
+Take a screenshot of the test from Q5 with the output and submit it to Canvas. 
+
+Sorry no puzzle today!
+:::
+

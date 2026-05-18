@@ -44,7 +44,7 @@ divide_and_round <- function(vec){
 **3. Test your function by running the code below.** If you don't get what you expect - edit your function! *Hint*: You might decide to add a second (optional) argument to the `min()` function.
 
 ```{r}
-test <- c(5:10, NA)
+test <- c(5:10, snip)
 
 divide_and_round(test)
 ```
