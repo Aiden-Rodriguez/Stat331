@@ -1,0 +1,237 @@
+---
+title: "Lab 7: Searching for Efficiency"
+author: "Aiden Rodriguez"
+format: 
+  html:
+    embed-resources: true
+    code-tools: true
+    toc: true
+    html-table-processing: none
+editor: source
+execute: 
+  error: true
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r}
+#| label: packages
+
+library(tidyverse)
+library(knitr)
+library(gt)
+library(kableExtra)
+```
+
+## The Data
+
+```{r}
+#| label: read-in-old-data
+
+# Data from Lab 2
+surveys <- read_csv("../Wk2/Lab02/surveys.csv")
+
+# Data from Lab 3
+evals <- read_csv("../Wk3/Lab3/teacher_evals.csv") |> 
+  rename(sex = gender)
+```
+
+
+## Formatting Tables
+
+**1. Using `map_chr()`, produce a table of the data type of each variable in the `surveys` dataset.** Specifically, the table should have two columns `var_name` and `type` with a row for each variable and be displayed using `kable()`.
+
+```{r}
+#| label: map-data-types-of-surveys
+
+surveys |> 
+  map_chr(~ class(.x)[1]) |> 
+  enframe(name = "var_name", value = "type") |> 
+  kable()
+```
+
+
+**2. Format the table nicely!** Think about the order of the rows to make the information easy to take in. Using either `kable()` and functions in the **kableExtra** package or `gt()` and functions from the **gt** package to make a table that includes a caption or header, and nice, bolded column names. **Note that you should assign the column names when creating the table, not by renaming columns in the dataset itself because we hate variable names with spaces in them!**
+
+```{r}
+#| label: formatted-var-tab
+
+surveys |> 
+  map_chr(~ class(.x)[1]) |> 
+  enframe(name = "var_name", value = "type") |> 
+  arrange(type, var_name) |> 
+  kable(
+    col.names = c("Variable Name", "Data Type"),
+    caption = "Data Types of Variables in the 'surveys' Dataset"
+  ) |> 
+  kable_styling(
+    full_width = FALSE
+  ) |> 
+  row_spec(0, bold = TRUE) # Bold the header columns (They already seem to be bolded reguardless of this line but it seemed like a question requirement)
+
+```
+
+**3. Using `map_at()` or `map_if()`, convert the `course_id`, `weekday`, `academic_degree`, `time_of_day`, and `sex` columns to factors. In other words, convert all character variables into factors. DO NOT PRINT OUT YOUR NEW DATA FRAME, just show the code.** 
+
+```{r}
+#| label: map-to-mutate-columns
+
+evals_factor <- evals |> 
+  map_if(is.character, as.factor) |> 
+  bind_cols()
+```
+
+
+**4. We are going to recreate the (mainly unformatted) table shown in the assignment online using one pipeline. This is a lot to think through at once, so we are going to make it easier by breaking it down into a couple of steps.** 
+
+```{r}
+#| label: evals-cleaning
+
+evals_clean <- evals |>
+  mutate(
+    question_no = question_no - 900,
+    sen_level = case_when(
+      seniority <= 4 ~ "junior",
+      seniority <= 8 ~ "senior",
+      seniority > 8 ~ "very senior"
+    )
+  ) |> 
+  distinct(teacher_id, .keep_all = TRUE)
+
+```
+
+
+**4a. Write a function called `quick_table` that takes a vector as the input and outputs a *dataframe* with three columns: `level` which takes the values of each level (or unique value) of the vector and `count` which shows the number of elements that have that level (unique value), and `prop` which show sthe proportion of elements that have that level.**
+
+
+```{r}
+#| label: quick_table
+
+quick_table <- function(x) {
+  table(x) |>
+    as.data.frame() |>
+    rename(
+      level = x,
+      count = Freq
+    ) |>
+    mutate(prop = count / sum(count))
+}
+
+```
+
+```{r}
+#| label: check-qt
+
+quick_table(evals$sex)
+```
+
+
+**4b. Use your `quick_table()` function and `map()` to create the table above in one pipeline. (Again, refer to the assignment online)**
+
+
+```{r}
+#| label: summary-table
+
+evals_clean |>
+  select(academic_degree, sex, sen_level) |>
+  map(quick_table) |>
+  list_rbind(names_to = "variable") |>
+  kable(
+    col.names = c("Variable", "Level", "Count", "Proportion"),
+    digits = 3
+  ) |>
+  kable_styling(
+    full_width = F,
+    bootstrap_options = "striped"
+  )
+```
+
+**5. Now turn that into a very nice table, like one of the examples in the assignment online using `kable()` and `kableExtra` or `gt`.** 
+
+```{r}
+#| label: fancy-demo-table
+
+evals_clean |>
+  select(
+    `Academic Degree` = academic_degree,
+    Sex = sex,
+    Seniority = sen_level
+  ) |>
+  map(quick_table) |>
+  list_rbind(names_to = "Demographic") |>
+  mutate(prop = prop * 100) |>
+  kable(
+    col.names = c("Demographic", "Group", "Count", "%"),
+    caption = "Demographics of Professors",
+    digits = 2
+  ) |>
+  kable_styling(
+    full_width = FALSE,
+    bootstrap_options = "striped"
+  ) |>
+  add_header_above(c(" " = 2, "Professor" = 2)) |>
+  collapse_rows(
+    columns = 1,
+    valign = "middle"
+  ) |>
+  row_spec(0, bold = TRUE)
+
+```
+
+**6. Write a function whose only argument is a file path to a directly, that will read in all .csv files in that directory and return a *list* of the data frames.**
+
+```{r}
+#| label: data-read-fun
+
+read_csv_dir <- function(path) {
+  files <- list.files(
+    path = path,
+    pattern = ".csv",
+    full.names = TRUE
+  )
+  data_list <- map(
+    files,
+    read_csv,
+    show_col_types = FALSE
+  )
+  names(data_list) <- gsub(".csv", "", basename(files))
+  return(data_list)
+}
+
+midterm_data <- read_csv_dir("../Wk5/Midterm/")
+
+class(midterm_data)
+names(midterm_data)
+
+#https://www.digitalocean.com/community/tutorials/sub-and-gsub-function-r
+```
+
+**7. Add input validation to your function in Q6 that checks that the input is a single string (the format of a file path). Provide a helpful message to the user if it is not. Just edit your Q6 code to add this. Write code here to check if your input validation works (i.e. give input that should fail your validation!).**
+
+```{r}
+#| label: data-read-valid
+
+read_csv_dir <- function(path) {
+  if (!is.character(path) || length(path) != 1) {
+    stop("Input must be a single string")
+  }
+  files <- list.files(
+    path = path,
+    pattern = ".csv",
+    full.names = TRUE
+  )
+  data_list <- map(
+    files,
+    read_csv,
+    show_col_types = FALSE
+  )
+  names(data_list) <- gsub(".csv", "", basename(files))
+  return(data_list)
+}
+
+read_csv_dir(c("../Wk5/Midterm/", "../data/"))
+
+read_csv_dir(c(4))
+```
+

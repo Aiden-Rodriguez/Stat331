@@ -1,0 +1,173 @@
+---
+title: "Lab 8: Data Frame Functions and Simulation Exploration"
+author: "Aiden Rodriguez"
+format: 
+  html:
+    embed-resources: true
+    code-tools: true
+    toc: true
+    html-table-processing: none
+editor: source
+execute: 
+  error: true
+  echo: true
+  message: false
+  warning: false
+---
+
+
+```{r}
+library(tidyverse)
+library(knitr)
+```
+
+```{r}
+fish = read_csv("BlackfootFish.csv")
+```
+### Standardizing Variables
+
+```{r}
+#| echo: true
+#| eval: false
+fish <- fish |> 
+  mutate(length = (length - min(length, na.rm = TRUE)) / 
+           (max(length, na.rm = TRUE) - min(length, na.rm = TRUE)), 
+         weight = (weight - min(weight, na.rm = TRUE)) / 
+           (max(weight, na.rm = TRUE) - min(length, na.rm = TRUE)))
+```
+
+**1. What is the mistake I made in the above rescaling code?**
+
+The first one does max length - min length, however the second weight based one does max weight - min length. It should both be weight here and was a copy paste error that was pretty easy to overlook.
+
+**2. Start by writing a function that rescales a vector. Transform the repeated process above into a `rescale_01()` function. Your function should...**
+
+```{r}
+
+rescale_01 <- function(x) {
+  rng <- range(x, na.rm = TRUE)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+```
+
+
+**3. Run the code below to test your function. Verify that the maximum of your rescaled vector is 1 and the minimum is 0!**
+
+```{r}
+rescaled <- rescale_01(fish$weight)
+
+min(rescaled, na.rm = TRUE)
+max(rescaled, na.rm = TRUE)
+```
+
+
+**4. Create a `rescale_column()` function that accepts two arguments:**
+
+```{r}
+
+rescale_column <- function(df, cols) {
+  df |> 
+    mutate(
+      across({{ cols }}, rescale_01)
+    )
+}
+
+```
+
+**5. Run the code below to test your function. You might need to edit the code if you call your dataset something different.**
+
+```{r}
+fish |> 
+  rescale_column(c(length, weight)) |> 
+  select(length:weight) |> 
+  slice_head(n = 5) |> 
+  kable()
+```
+
+### Accounting for Unlikely Values
+
+**6. Write a function that will replace unlikely values of a variable in a dataframe with missing values. Your function should accept at least four inputs**:
+
+```{r}
+clean_values <- function(df, col, min_val, max_val) {
+  df |> 
+    mutate(
+      {{ col }} := if_else(
+        {{ col }} < min_val | {{ col }} > max_val,
+        NA,
+        {{ col }}
+      )
+    )
+}
+```
+
+**7. Write a test that demonstrates that your function worked using the fish data!**
+
+```{r}
+clean_values(fish, length, 100, 300)
+# Here I just use 300 as a value to show that it will remove some max values. 
+# But it seems like the actual reasonable limit is something like 400.
+```
+
+## Random Babies Simulation
+
+**8. Simulate the distribution of the number of babies that are correctly returned if there were four babies born in a night at our disorganized hospital. Use 10,000 simulations. Make sure to add a line of code to make your simulation reproducible every time you run it.**
+
+
+```{r}
+#| label: function-for-random-babies
+
+randomBabies <- function(babies){
+  
+  correct_order <- 1:babies
+  returned_order <- sample(1:babies)
+  sum(correct_order == returned_order)
+  
+}
+```
+
+```{r}
+#| label: full-simulation-for-random-babies
+
+results <- map_int(
+  .x = 1:10000,
+  .f = ~ randomBabies(4)
+)
+
+```
+
+**9. Create a table displaying the proportion of simulations where 0, 1, 2, 3, and 4 babies were given to their correct parent(s).** 
+
+
+```{r}
+#| label: table-for-random-babies
+
+raw_df <- enframe(results, value = "matches")
+
+proportions <- raw_df |>
+  count(matches) |>
+  mutate(proportion = n / sum(n))
+
+kable(proportions)
+
+```
+
+**10. Now create a barplot showing the proportion of simulations where 0, 1, 2, 3, and 4 babies were given to their correct parent(s).** Don't forget a title and appropriate axis labels.
+
+
+```{r}
+#| label: visualization-for-random-babies
+
+ggplot(proportions, aes(x = matches,
+                        y = proportion,
+                        fill = factor(matches))) +
+  geom_col() +
+  labs(
+    title = "Distribution of Correctly Returned Babies",
+    x = "Number of Correctly Returned Babies",
+    y = "Proportion of Correctly Returned Babies",
+    fill = "Correct Matches"
+  )
+```
+
