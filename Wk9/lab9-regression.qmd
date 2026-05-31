@@ -1,0 +1,347 @@
+---
+title: "Lab 9: Regression Exploration"
+author: "Aiden Rodriguez"
+format: 
+  html:
+    code-tools: true
+    toc: true
+    embed-resources: true
+editor: source
+execute: 
+  error: true
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r, setup}
+library(tidyverse)
+library(broom)
+library(gtsummary)
+library(knitr)
+```
+
+
+## What are standardized tests measuring?
+
+**1. Create a well-formatted scatterplot of `average_sat_math` versus `perc_disadvan` along with the linear regression line. How would you describe the relationship between these two variables?**
+
+```{r}
+#| label: scatterplot
+sat_data = read_csv("MA_schools.csv")
+
+ggplot(sat_data, aes(x = perc_disadvan, y = average_sat_math)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(
+    title = "SAT Math Score vs. Percent Disadvantaged",
+    x = "Percent Disadvantaged",
+    y = "SAT Math Score Average"
+  )
+```
+
+I would describe the percent disadvantaged as the explanatory variable and the SAT math score average as the response variable. Basically this means that the scores change with the percentage of disadvantaged people. This is a negative relationship as the SAT math score average goes down as the percent disadvantaged goes up, meaning that essentially the less money an area has, the lower the math score will generally be.
+
+**2. Fit a simple linear regression model of average SAT math score on percent economically disadvantaged. Provide nicely-formatted table of the estimated model coefficients including some indication of variability (standard error or confidence interval) and a p-value.**
+
+
+```{r}
+#| label: model
+
+sat_model <- lm(average_sat_math ~ perc_disadvan, data = sat_data)
+
+tbl_regression(sat_model, intercept = T)
+```
+
+
+**3. Conduct model diagnostics to check that the conditions for linear regression that we discussed in class are met (L.I.N.E.).** 
+```{r}
+#| label: diagnostics
+diag_data <- augment(sat_model)
+
+ggplot(diag_data, aes(x = .fitted, y = .resid)) +
+  geom_point(alpha = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(
+    x = "Fitted Values",
+    y = "Residuals",
+    title = "Residuals vs Fitted Values"
+  )
+
+ggplot(diag_data, aes(sample = .std.resid)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot")
+
+ggplot(diag_data, aes(x = .resid)) +
+  geom_histogram(bins = 20) +
+  labs(
+    x = "Residuals",
+    title = "Distribution of Residuals"
+  )
+
+#how to check for L.I.N.E r (googled, googleAI popup helped)
+```
+L.I.N.E is showcased here as from the first graph we can see that around the dotted line, points are scattered evenly on the top and bottom sides of the line, independence is assumed as there are multiple different high schools, normality can be seen from the Q-Q plot as most follow the line, and the distribution in the last plot seems about even centered on 0. 
+
+**4. Briefly discuss (2-3 sentences) what you learned about the relationship between average math ACT scores and socioeconomic status in Massachusetts schools from this analysis.**
+
+It can be seen that essentially people of lower socioeconomic status tend to have lower ACT scores. This is likely because people with less access to resources generally will perform worse as they don't have the same level of quality in things such as textbooks, projects, activities, etc. that would help promote growth. It also may be an area based thing, where "poorer" areas may put greater importance on general immediate survival, helping around the house and smaller jobs rather than investing into one's future. 
+
+## Simulation-based Inference
+
+
+**5. Fill in the function code below to conduct one simulation, generating a t-statistic for the slope coefficient, assuming the null hypothesis is true. This function should**:
+
+
+```{r}
+
+perm_slr <- function(dat, resp, exp){
+
+  perm_dat <- dat |>
+    mutate(across({{exp}}, sample))
+
+  mymod <- lm(substitute(resp ~ exp), data = perm_dat)
+
+  tidy(mymod)$statistic[2]
+}
+```
+
+Make sure that your function works by running this code! It should just output a single number.
+
+```{r}
+
+perm_slr(dat = sat_data,
+         resp = average_sat_math,
+         exp = perc_disadvan)
+```
+
+**Now let's generate a null distribution for the t-statistic!** I set up code for you to run 1,000 iterations of the simulation. 
+
+```{r}
+
+set.seed(331)
+
+perm_results <- map_dbl(.x = 1:1000,
+                        .f = ~ perm_slr(dat = sat_data,
+                                        resp = average_sat_math,
+                                        exp = perc_disadvan))
+```
+
+**6. Plot the simulation results!** Using `ggplot`, **create a histogram of the simulated t-statistics.** Theory tells us that the distribution of those t-statistics should follow a $t$ distribution with $n-1$ degrees of freedom, where $n$ is the number of observations in the data. **Add the theoretical density curve** for a $t$ distribution with $n-1$ degrees of freedom. Does it look like the theoretical curve matches the simulated curve? Is the observed t-statistic for the actual data (Question 2) unusual based on this null distribution?
+
+
+```{r}
+# Q6 code
+
+perm_df <- tibble(t_stat = perm_results)
+
+# Line observed
+observed_t <- tidy(sat_model) |>
+  filter(term == "perc_disadvan") |>
+  pull(statistic)
+
+n <- nrow(sat_data)
+
+# Simulated Histogram
+ggplot(perm_df, aes(x = t_stat)) +
+  geom_histogram(
+    aes(y = after_stat(density)),
+    bins = 50,
+  ) +
+  stat_function(
+    fun = dt,
+    args = list(df = n - 1)
+  ) +
+  geom_vline(
+    xintercept = observed_t,
+    linetype = "dashed"
+  ) +
+  labs(
+    title = "Simulated t-statistics",
+    subtitle = "Histogram from permutation simulations",
+    x = "Simulated t-statistic",
+    y = "Density"
+  )
+
+```
+
+The theoretical t distribution seems to match the simulated permutation very well. It can also be seen that the dashed line on the left (which is the actual t-statistic) is far and away from the simulated version, meaning we can reject the null hypothesis, and confirm that there is a link between SAT scores and percent disadvantaged. This is "unusual" as the simulated and actual do not actually match up. 
+
+## Simulating Coverage
+
+**7. Fill in the code below to generate a synthetic dataset with 100 observations. We will assume that the explanatory variable $X$ is uniformly distributed from 0 to 1 and that $\sigma^2$ = 1. The synthetic data should be a dataframe with 100 rows and two columns: `x` and `y`.**
+
+```{r}
+#| label: data-generation
+
+# define slope and intercept parameters
+intercept = 2
+slope = 1
+
+# generate x vector
+x <- runif(n = 100, min = 0, max = 1)
+
+
+# generate noise `ep` vector
+ep <- rnorm(n = 100, mean = 0, sd = 1)
+
+
+# generate outcome from population model
+y = intercept + x*slope + ep
+
+
+# create an "observed data" dataframe or tibble with only the x and y vectors
+sim_data <- tibble(x = x, y = y)
+```
+
+**8. Fit a simple linear regression model of the outcome `y` on `x`. Use `tidy()` from the `broom` package to extract a dataframe from the `lm()` output that includes the slope estimate and the lower and upper bounds for a a 95% confidence interval for the slope estimate. The output of this code should be a dataframe/tibble with one row  three columns: `estimate`, `conf.low` and `conf.high`**
+
+```{r}
+#| label: test-linear-model
+
+lm(y ~ x, data = sim_data) |>
+  tidy(conf.int = TRUE) |>
+  filter(term == "x") |>
+  select(estimate, conf.low, conf.high)
+```
+
+
+**9. Check whether the true population slope is inside of the estimated 95% confidence interval for that simulated dataset. Specifically, *add* a variable called `cover` to the dataframe of estimates you created in the last question (Q5) that is `1` if the population slope is in the interval and `0` if not.**  
+
+```{r}
+#| label: check-coverage
+
+slope_est <- lm(y ~ x, data = sim_data) |>
+  tidy(conf.int = T) |>
+  filter(term == "x") |>
+  select(estimate, conf.low, conf.high) |>
+  mutate(
+    cover = if_else(
+      conf.low <= 1 & conf.high >= 1,
+      1,
+      0
+    )
+  )
+
+slope_est
+```
+
+**10. Now put this all together into a function called `mycifun`! Run the check provided to ensure that it works correctly**
+
+```{r}
+#| label: ci-sim-function
+
+mycifun <- function(beta0, beta1, n) {
+  
+  x <- runif(n = n, min = 0, max = 1)
+  ep <- rnorm(n = n, mean = 0, sd = 1)
+  y <- beta0 + beta1*x + ep
+  
+  sim_data <- tibble(
+    x = x,
+    y = y
+  )
+  
+  lm(y ~ x, data = sim_data) |>
+    tidy(conf.int = TRUE) |>
+    filter(term == "x") |>
+    select(estimate, conf.low, conf.high) |>
+    mutate(
+      cover = if_else(
+        conf.low <= beta1 & beta1 <= conf.high,
+        1,
+        0
+      )
+    )
+}
+```
+
+```{r}
+#| label: small-test-ci-fun
+
+mycifun(beta0 = 1, beta1 = 2, n = 1000)
+```
+
+
+**11a. Now run this simulation  1,000 times using `map_dfr()` and the function you wrote (`mycifun()`). Generate data with $\beta_0 = 3$, $\beta_1 = .5$ and $n = 100$. Make sure to add a line of code to make your simulation reproducible every time you run it.** 
+
+```{r}
+#| label: run-ci-sim
+
+set.seed(67)
+
+ci_dat <- map_dfr(
+  .x = 1:1000,
+  .f = ~ mycifun(beta0 = 3, beta1 = 0.5, n = 100)
+)
+
+kable(head(ci_dat, 5))
+```
+
+**11b. What does one row in the resulting `ci_dat` represent?**
+
+One row here represents one simulated dataset, one linear regression model, and one 95% CI for the slope from that simulated dataset.
+
+**11c. What is your simulated coverage rate? In otherwords, for what proportion of the iterations was the population slope within the estimated 95% confidence interval? Write your answer as a sentence in Markdown using inline code!**
+
+```{r}
+#| label: sim-cov
+
+ci_dat |>
+  summarize(coverage_rate = mean(cover))
+```
+
+The simulated coverage rate is `r mean(ci_dat$cover)`, meaning about `r mean(ci_dat$cover) * 100`% of the simulated 95% confidence intervals contained the true population slope.
+
+(Used https://quarto.org/docs/computations/inline-code.html)
+
+**12. Create a visualization to illustrate the coverage rate.**
+
+
+```{r}
+#| label: cov-plot
+
+set.seed(67)
+
+ci_plot_dat <- ci_dat |>
+  slice_sample(n = 100) |>
+  mutate(
+    sim_id = row_number(),
+    cover = factor(cover)
+  )
+
+ggplot(ci_plot_dat, aes(
+  x = estimate,
+  y = sim_id,
+  xmin = conf.low,
+  xmax = conf.high,
+  color = cover
+)) +
+  geom_errorbar(width = 0.2) +
+  geom_vline(
+    xintercept = 0.5,
+    linetype = "dashed"
+  ) +
+  scale_color_manual(
+    values = c("0" = "red", "1" = "lightblue"),
+  ) +
+labs(
+  title = "95% Confidence Intervals of Estimated Regression Slope\nfor 100 Simulated Datasets",
+  subtitle = str_c(
+    "CI's that do not include the population slope are highlighted in ",
+    "<span style='color:red'><b>red</b></span>"
+  ),
+  y = "",
+  x = "Slope Coeff Estimate"
+) +
+theme(
+  plot.title = element_text(size = 18),
+  plot.subtitle = ggtext::element_markdown(size = 14),
+  legend.position = "none"
+)
+
+#https://ggplot2-book.org/scales-colour.html
+```
+
+
