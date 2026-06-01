@@ -131,14 +131,19 @@ Great! Now you should have a nice simple map of all of the US counties. Let's ad
   b. The secret code should start with the hashtag character (#)
   
 ```{r}
-secret <- secret |> 
-  
+secret <- secret |>
+  mutate(
+    secret_code = str_replace_all(secret_code, "g", "F"),
+    secret_code = str_c("#", secret_code)
+  )
 ```
 
 6. It turns out that the secret code gives you the colors that should be used in your final map. Save a **vector** called `map_colors` with the **unique** values of the `secret_code` column (after the cleaning in Q5).
 
 ```{r}
 # code for Q6
+
+map_colors <- unique(secret$secret_code)
 ```
 
 
@@ -146,6 +151,21 @@ secret <- secret |>
 
 ```{r}
 # code for Q7-8
+
+county_secret <- county_map |>
+  mutate(
+    state = str_to_title(region),
+    county = str_to_title(subregion)
+  ) |>
+  left_join(secret, by = c("state", "county"))
+
+ggplot(county_secret,
+       aes(x = long, y = lat, group = group, fill = secret_code)) +
+  geom_polygon(color = "darkgrey", linewidth = 0.1) +
+  scale_fill_identity() +
+  labs(x = "", y = "") +
+  coord_map("albers", lat0 = 39, lat1 = 45) +
+  theme_void()
 ```
 
 
