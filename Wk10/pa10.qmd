@@ -1,0 +1,156 @@
+---
+title: "PA 10: Map it!"
+subtitle: "Plotting Geographic Data"
+format: 
+  html:
+    code-tools: true
+    toc: true
+    number-sections: true
+editor: source
+execute: 
+  error: true
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)
+library(maps)
+library(mapproj)
+```
+
+Make sure you are also working with the online version of this assignment for tips!
+
+
+```{r}
+#This is the important shid
+
+cv_it <- function(k, form, df){
+  
+  # separate fold (test) data
+  fold_dat <- df |> 
+    filter(fold_random == k)
+  
+  # and training data
+  train_dat <- df |> 
+    filter(fold_random != k)
+  
+  # fit model with training data
+  it_lm <- lm(form,
+              data = train_dat)
+  
+  # generate predictions for the held-out fold data
+  fold_preds <- augment(it_lm, newdata = fold_dat) |> 
+    mutate(response = .fitted + .resid)
+
+  # calculate R2 for the held-out fold data and save it
+  r2_calc(obs = fold_dat$weight,
+          pred = fold_preds)
+}
+
+k_fold_cv <- function(data, form, k=5) {
+  n <- nrow(data)
+  
+  #split data into fold
+  data <- data|> 
+    mutate(fold_random = sample(rep_len(1:k, length.out = n),
+                                size = n))
+  
+  #iteratively apply train/test to folds
+  
+  map_dbl(.x = 1:k,
+          .f = ~ cv_it(k = .x, form = form, df = data))
+  #average k across fold
+
+  #k_fold_cv(data = ncbirths, form = weight ~ weeks, k = 5)
+}
+```
+## Data
+
+`secret_map.csv` contains a secret code for each county in the U.S. In this PA, you will figure out the code and then create a map in `ggplot` showing what you found.
+
+```{r}
+secret = read_csv("secret_map.csv")
+```
+
+## Simple Map of US Counties
+
+Let's start by just creating a map of all of the counties in the continuous US. 
+
+1. Use the `map_data()` function to load a dataframe of US **counties** with their latitudes and longitudes. Save this data as `county_map`.
+
+```{r}
+county_map = map_data("county")
+```
+
+
+2. Using `ggplot()`, generate a map of the US counties. Have the fill color for each county be white and the outline color be a dark grey. Use cartesian coordinates.
+
+
+```{r}
+ggplot(county_map,
+       aes(x = long,
+           y = lat,
+           group = group)) +
+  geom_polygon(fill = "white",
+               color = "darkgrey",
+               linewidth = 0.1) +
+  labs(x = "", y = "") +
+  coord_cartesian()
+```
+
+3. If you haven't already, remove any axis labels and normal plot grid lines. You can remove the default grey ggplot background as well if you prefer!
+
+4. While cartesian coordinates are typical, they are actually somewhat visually misleading since the globe is a sphere. A recommended system for showing the US is the "Albers Equal Area Conic Projection". Copy and paste your code from Q2-3 and change the coordinate system to this projection (or any conic projection). 
+
+
+```{r}
+county_map = map_data("county")
+
+county_map <- map_data("county")
+
+ggplot(county_map,
+       aes(x = long,
+           y = lat,
+           group = group)) +
+  geom_polygon(fill = "white",
+               color = "darkgrey",
+               linewidth = 0.1) +
+  labs(x = "", y = "") +
+  coord_map("albers", lat0 = 39, lat1 = 45)
+```
+
+Great! Now you should have a nice simple map of all of the US counties. Let's add the information from the `secret_map.csv` data.
+
+## Color that Map
+
+5. First of all, word is just in that there are a couple of typos in the `secret_code` column:
+  a. Any "g" should be replaced with "F" (case matters!)
+  b. The secret code should start with the hashtag character (#)
+  
+```{r}
+secret <- secret |> 
+  
+```
+
+6. It turns out that the secret code gives you the colors that should be used in your final map. Save a **vector** called `map_colors` with the **unique** values of the `secret_code` column (after the cleaning in Q5).
+
+```{r}
+# code for Q6
+```
+
+
+7. Now map it! Fill the counties as indicated in the secret map data with the appropriate color (as given by `secret_code`) in your US map. 
+
+```{r}
+# code for Q7-8
+```
+
+
+8. Finally, also change the outline color for counties to the appropriate color for the county based on the `secret_code`. Submit a screenshot of this final plot in your Canvas submission!
+
+## Canvas Submission: 
+
+> Submit a screenshot of your final plot. What flag is shown?
