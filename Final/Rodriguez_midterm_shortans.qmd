@@ -1,0 +1,274 @@
+---
+title: "Stat 331/531: Final Short Answer"
+date: now
+author: "Aiden Rodriguez"
+format: 
+  pdf:
+    embed-resources: true
+editor: source
+execute: 
+  error: true
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup}
+library(tidyverse)
+library(knitr)
+library(maps)
+library(mapproj)
+```
+
+
+trail_id: An ID number for the trail
+name: Name of the trail
+area_name: National Park where the trial is located
+city_name: City where the trail is located
+state_name: State where the trail is located
+country_name: Country where the trail is located
+_geoloc: Latitude and longitude of trail
+popularity: A score from 0 to 100 of how often the trail is used.
+length: Distance covered by trail (in meters).
+elevation_gain: How much uphill is on the trail (in meters).
+difficulty_rating: Average user rating of trail difficulty
+route_type: Type of trail (loop, out and back, or point to point)
+visitor_usage: (Honestly, I’m not sure what this one is.)
+avg_rating: The average visitor rating of the trail (1 to 5 stars)
+num_reviews: The total number of reviews on the app for that trail
+features: Notable elements about the trail
+activities: Common uses for the trail
+units: This variable is a lie! All the lengths are in meters.
+
+```{r}
+park_data  <- read_csv("national_park_trails.csv")
+```
+
+**Question 1.**
+
+```{r}
+park_data <- read_csv("national_park_trails.csv")
+
+park_data_clean <- park_data |>
+  # Parse _geoloc JSON string into lat/lng columns
+  mutate(
+    latitude  = as.numeric(str_extract(`_geoloc`, "(?<='lat': )[0-9.-]+")),
+    longitude = as.numeric(str_extract(`_geoloc`, "(?<='lng': )[0-9.-]+"))
+  ) |>
+  select(-`_geoloc`) |>
+  # Normalize difficulty_rating to 0–1
+  mutate(
+    difficulty_rating = (difficulty_rating - min(difficulty_rating, na.rm = TRUE)) /
+                        (max(difficulty_rating, na.rm = TRUE) - min(difficulty_rating, na.rm = TRUE))
+  )
+```
+
+```{r}
+park_data_clean |>
+  mutate(
+    features = str_extract_all(features, "(?<=')[^']+(?=')")
+  ) |>
+  unnest(features) |>
+  filter(features == "waterfall")
+```
+
+Using map() from the purrr package, split park_data_clean by state_name and fit a linear model predicting avg_rating from difficulty_rating and length for each state. Extract the R² value from each model and return a tidy dataframe showing each state alongside its R², sorted from best to worst fit.
+```{r}
+thresholds <- seq(0, 20, by = 2)
+
+correlations <- map_dbl(.x = thresholds,
+                        .f = ~ cor(
+                          filter(park_data_clean, popularity > .x)$difficulty_rating,
+                          filter(park_data_clean, popularity > .x)$avg_rating,
+                          use = "complete.obs"
+                        ))
+
+results <- tibble(threshold = thresholds,
+                  correlation = correlations)
+
+results
+
+ggplot(results, aes(x = threshold, y = correlation)) +
+  geom_line(color = "#378ADD", linewidth = 0.8) +
+  geom_point(color = "#378ADD", size = 2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "darkgrey") +
+  labs(
+    x     = "Minimum popularity threshold",
+    y     = "Correlation (difficulty vs. avg rating)",
+    title = "Correlation between difficulty and rating\nat varying popularity thresholds"
+  ) +
+  theme_minimal()
+```
+Simulation question:
+A hiker randomly selects a trail each day from park_data_clean. They will keep hiking as long as every trail they've hiked so far has had a difficulty_rating (normalized 0–1) below 0.75. The moment they hit a trail at or above 0.75, they stop for the season.
+Using a simulation with 10,000 iterations:
+
+Simulate how many trails the hiker completes before stopping (or exhausting all trails)
+Plot the distribution of trails completed per season as a histogram
+Report the mean and 95th percentile of trails completed
+
+Hint: use sample() to draw trails with replacement each iteration, and which() or a while loop to find when the first hard trail appears.
+```{r}
+set.seed(123)
+n_sims <- 10000
+
+# Pull the difficulty ratings as a vector
+difficulties <- park_data_clean$difficulty_rating
+
+simulate_season <- function() {
+  # Sample trail difficulties with replacement
+  sampled <- sample(difficulties, size = length(difficulties), replace = TRUE)
+  
+  # Find index of first trail at or above 0.75
+  hard_trail <- which(sampled >= 0.75)[1]
+  
+  # If no hard trail found, hiker completes all; otherwise trails completed = index - 1
+  if (is.na(hard_trail)) {
+    return(length(sampled))
+  } else {
+    return(hard_trail - 1)
+  }
+}
+
+results <- replicate(n_sims, simulate_season())
+
+# Summary stats
+cat("Mean trails completed:      ", round(mean(results), 2), "\n")
+cat("95th percentile completed:  ", quantile(results, 0.95), "\n")
+
+# Histogram
+tibble(trails_completed = results) |>
+  ggplot(aes(x = trails_completed)) +
+  geom_histogram(binwidth = 1, fill = "#378ADD", color = "white", linewidth = 0.2) +
+  geom_vline(xintercept = mean(results),
+             color = "#A32D2D", linewidth = 0.8, linetype = "dashed") +
+  annotate("text",
+           x     = mean(results) + 1,
+           y     = Inf,
+           label = paste("mean =", round(mean(results), 1)),
+           vjust = 2, hjust = 0,
+           color = "#A32D2D", size = 3.5) +
+  labs(
+    x     = "Trails completed before stopping",
+    y     = "Count",
+    title = "Distribution of trails hiked per season"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+state_ratings <- park_data_clean |>
+  mutate(region = str_to_lower(state_name)) |>
+  group_by(region) |>
+  summarise(avg_rating = mean(avg_rating, na.rm = TRUE), .groups = "drop")
+
+state_map <- map_data("state")
+
+state_difficulty <- state_map |>
+  left_join(state_ratings, by = "region")
+
+# State borders layer
+state_borders <- state_map |>
+  group_by(region) |>
+  summarise(lat = mean(lat), long = mean(long))
+
+ggplot(state_difficulty,
+       aes(x = long, y = lat, group = group, fill = avg_rating)) +
+  geom_polygon(color = "white", linewidth = 0.1) +
+  geom_polygon(data = state_map,
+               aes(x = long, y = lat, group = group),
+               fill = NA, color = "#222222", linewidth = 0.4) +
+  scale_fill_gradient(
+    low      = "#C0DD97",
+    high     = "#0C447C",
+    na.value = "grey90",
+    name     = "Avg. Trail Rating"
+  ) +
+  labs(x = "", y = "") +
+  coord_map("albers", lat0 = 39, lat1 = 45) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    legend.title    = element_text(size = 9),
+    legend.text     = element_text(size = 8)
+  )
+```
+
+```{r}
+county_map <- map_data("county")
+
+# Prepare trail data for joining - normalize names to match map_data format
+trail_county_data <- park_data_clean |>
+  mutate(
+    region    = str_to_lower(state_name),
+    subregion = str_to_lower(city_name)
+  ) |>
+  group_by(region, subregion) |>
+  summarise(difficulty_rating = mean(difficulty_rating, na.rm = TRUE), .groups = "drop")
+
+county_difficulty <- county_map |>
+  left_join(trail_county_data, by = c("region", "subregion"))
+
+# Plot
+ggplot(county_difficulty,
+       aes(x = long, y = lat, group = group, fill = difficulty_rating)) +
+  geom_polygon(color = "darkgrey", linewidth = 0.1) +
+  scale_fill_gradient(
+    low      = "#C0DD97",
+    high     = "#A32D2D",
+    na.value = "white",
+    name     = "Difficulty\n(normalized)"
+  ) +
+  labs(x = "", y = "") +
+  coord_map("albers", lat0 = 39, lat1 = 45) +
+  theme_void() +
+  theme(
+    legend.position  = "right",
+    legend.title     = element_text(size = 9),
+    legend.text      = element_text(size = 8)
+  )
+```
+
+```{r}
+#This is the important shid
+
+cv_it <- function(k, form, df){
+  
+  # separate fold (test) data
+  fold_dat <- df |> 
+    filter(fold_random == k)
+  
+  # and training data
+  train_dat <- df |> 
+    filter(fold_random != k)
+  
+  # fit model with training data
+  it_lm <- lm(form,
+              data = train_dat)
+  
+  # generate predictions for the held-out fold data
+  fold_preds <- augment(it_lm, newdata = fold_dat) |> 
+    mutate(response = .fitted + .resid)
+
+  # calculate R2 for the held-out fold data and save it
+  r2_calc(obs = fold_dat$weight,
+          pred = fold_preds)
+}
+
+k_fold_cv <- function(data, form, k=5) {
+  n <- nrow(data)
+  
+  #split data into fold
+  data <- data|> 
+    mutate(fold_random = sample(rep_len(1:k, length.out = n),
+                                size = n))
+  
+  #iteratively apply train/test to folds
+  
+  map_dbl(.x = 1:k,
+          .f = ~ cv_it(k = .x, form = form, df = data))
+  #average k across fold
+
+  #k_fold_cv(data = ncbirths, form = weight ~ weeks, k = 5)
+}
+```
